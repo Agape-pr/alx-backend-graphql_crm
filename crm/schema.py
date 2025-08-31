@@ -1,4 +1,18 @@
 import graphene
+
+class Query(graphene.ObjectType):
+    # Example field
+    hello = graphene.String(default_value="Hello from CRM app!")
+
+class Mutation(graphene.ObjectType):
+    # Example mutation
+    say_hello = graphene.String(name=graphene.String())
+
+    def resolve_say_hello(root, info, name):
+        return f"Hello {name}"
+
+
+
 from graphene_django import DjangoObjectType
 from .models import Customer, Product, Order
 from django.db import transaction
@@ -324,7 +338,7 @@ class Mutation(graphene.ObjectType):
 from graphene_django.filter import DjangoFilterConnectionField
 from .models import Customer, Product, Order
 from .filters import CustomerFilter, ProductFilter, OrderFilter
-from .schema_mutations import Mutation  # Assuming you moved Task 2 mutations to schema_mutations.py
+from .schema_mutations import Mutation  # Assuming i moved Task 2 mutations to schema_mutations.py
 
 # Node-based types for filtering & pagination
 class CustomerNode(DjangoObjectType):
@@ -378,3 +392,34 @@ class Query(graphene.ObjectType):
         if order_by:
             qs = qs.order_by(*order_by)
         return qs
+
+
+from .types import ProductType  # Assuming you already defined ProductType
+from crm.models import Product
+class UpdateLowStockProducts(graphene.Mutation):
+    class Arguments:
+        pass  # No arguments needed
+
+    success = graphene.Boolean()
+    message = graphene.String()
+    updated_products = graphene.List(ProductType)
+
+    def mutate(self, info):
+        low_stock_products = Product.objects.filter(stock__lt=10)
+        updated = []
+        for product in low_stock_products:
+            product.stock += 10
+            product.save()
+            updated.append(product)
+
+        if updated:
+            return UpdateLowStockProducts(
+                success=True,
+                message="Low stock products updated successfully",
+                updated_products=updated
+            )
+        return UpdateLowStockProducts(success=False, message="No products needed updating", updated_products=[])
+
+
+class Mutation(graphene.ObjectType):
+    update_low_stock_products = UpdateLowStockProducts.Field()
